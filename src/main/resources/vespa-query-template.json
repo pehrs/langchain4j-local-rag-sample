@@ -1,0 +1,10 @@
+{
+  "yql": "select {{fields}} from {{docType}} where {{targetHits}}nearestNeighbor({{embeddingFieldName}},{{rankingInputName}}) order by {{tsFieldName}} desc",
+  "input": {
+    "input.query(threshold)": {{threshold}},
+    "query({{rankingInputName}})": [
+      {{embedding}}
+    ]
+  },
+  "ranking": "{{rankingName}}"
+}

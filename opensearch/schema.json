@@ -1,0 +1,20 @@
+# Create Index
+PUT /embeddings
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "news_id":    { "type" : "keyword" },
+      "url":        { "type" : "keyword" },
+      "title":      { "type" : "text" },
+      "abstract":    { "type" : "text" },
+      "embedding": {
+        "type": "knn_vector",
+        "dimension": 384
+      }
+    }
+  }
+}
