@@ -1,8 +1,11 @@
 package com.pehrs.langchain4j;
 
 
+import com.codahale.metrics.MetricRegistry;
 import com.pehrs.langchain4j.opensearch.OpenSearchUtils;
+import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingConfig;
 import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore;
+import com.pehrs.langchain4j.vespa.VespaDocumentHandler;
 import com.typesafe.config.Config;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.embedding.AllMiniLmL6V2EmbeddingModel;
@@ -11,6 +14,9 @@ import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.store.embedding.vespa.VespaEmbeddingStore;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import org.jetbrains.annotations.NotNull;
 
@@ -35,15 +41,42 @@ public abstract class RagSample {
   }
 
   @NotNull
-  public static EmbeddingStore createEmbeddingStore(String embeddingStoreName, Config config) {
-    switch (embeddingStoreName) {
+  public static EmbeddingStore createEmbeddingStore(MetricRegistry metricRegistry, Config config) {
+    switch ( config.getString("embeddings.store")) {
+//      case "vespa":
+//        return createVespaEmbeddingStore(config);
       case "vespa":
-        return SimpleVespaEmbeddingStore.createSimpleVespaEmbeddingStore(config);
+        return SimpleVespaEmbeddingStore.createSimpleVespaEmbeddingStore(metricRegistry, config);
       case "opensearch":
         return OpenSearchUtils.createOpenSearchEmbeddingStore(config);
       default:
         return new InMemoryEmbeddingStore();
     }
+  }
+
+  /**
+   * The VespaDocumentHandler can only be created if TLS is turned on
+   */
+  private static EmbeddingStore createVespaEmbeddingStore(Config config) {
+
+    Config vespaConfig = config.getConfig("vespa");
+    SimpleVespaEmbeddingConfig vespaEmbeddingConfig =
+        SimpleVespaEmbeddingConfig.fromConfig(vespaConfig)
+            .build();
+
+    VespaDocumentHandler docHandler = vespaEmbeddingConfig.createVespaDocumentHandler();
+
+    return new VespaEmbeddingStore(
+        vespaEmbeddingConfig.url,
+        null,
+        null,
+        vespaEmbeddingConfig.timeout,
+        docHandler.namespace(), // FIXME
+        docHandler.docType(), // FIXME
+        "recommendation", // FIXME
+        5,// FIXME
+        vespaEmbeddingConfig.avoidDups
+    );
   }
 
   public static EmbeddingModel createEmbeddingModel() {
@@ -72,5 +105,18 @@ public abstract class RagSample {
         .maxRetries(ollamaMaxRetries)
         .build();
     return chatModel;
+  }
+
+  static DocumentsReader createDocumentsReader(MetricRegistry metricRegistry, Config config) {
+    try {
+      String readerClassName = config.getString("embeddings.documentsReader");
+      Class<?> readerClass = Class.forName(readerClassName);
+      Constructor<?> constructor = readerClass.getDeclaredConstructor(
+          MetricRegistry.class, Config.class);
+      return (DocumentsReader) constructor.newInstance(metricRegistry, config);
+    } catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException |
+             InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

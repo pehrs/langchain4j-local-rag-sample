@@ -1,5 +1,6 @@
 package com.pehrs.langchain4j.service;
 
+import com.codahale.metrics.MetricRegistry;
 import com.pehrs.grpc.rag.sample.AskReply;
 import com.pehrs.grpc.rag.sample.AskRequest;
 import com.pehrs.grpc.rag.sample.RagSampleGrpc;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RagSampleService {
+public class RagSampleGrpcService {
   private static final Logger logger = LoggerFactory.getLogger(RagSampleGrpc.class);
 
   private Server server;
@@ -47,7 +48,7 @@ public class RagSampleService {
         // Use stderr here since the logger may have been reset by its JVM shutdown hook.
         System.err.println("*** shutting down gRPC server since JVM is shutting down");
         try {
-          RagSampleService.this.stop();
+          RagSampleGrpcService.this.stop();
         } catch (InterruptedException e) {
           e.printStackTrace(System.err);
         }
@@ -72,28 +73,29 @@ public class RagSampleService {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    final RagSampleService server = new RagSampleService();
+    final RagSampleGrpcService server = new RagSampleGrpcService();
     server.start();
     server.blockUntilShutdown();
   }
 
+  // FIXME: Implement a streaming version of this that would push the answer as it is created.
   static class AskImpl extends RagSampleGrpc.RagSampleImplBase {
 
     Config config = ConfigFactory.load("rag-sample");
+    MetricRegistry metricRegistry = new MetricRegistry();
 
     @Override
     public void ask(AskRequest req, StreamObserver<AskReply> responseObserver) {
-      String answer = chat(config, req.getQuestion());
+      String answer = chat(metricRegistry, config, req.getQuestion());
       AskReply reply = AskReply.newBuilder().setAnswer(answer).build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     }
 
-    static String chat(Config config, String input) {
+    static String chat(MetricRegistry metricRegistry, Config config, String input) {
       ChatLanguageModel chatModel = RagSample.createChatLanguageModel(config);
       EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
-      EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(
-          config.getString("embeddingStore"), config);
+      EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry, config);
 
       Embedding questionEmbedding = embeddingModel.embed(input).content();
 

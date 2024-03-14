@@ -67,7 +67,21 @@ To kill (and delete all data from) the Vespa cluster just:
 ```shell
 docker rm -f vespa
 ```
-### (Option 2) OpenSearch
+
+
+#### Delete all Vespa docs
+```shell
+# Delete all books
+curl -X DELETE \
+  "http://localhost:8080/document/v1/embeddings/books/docid?selection=true&cluster=llm"
+
+# Delete all news
+curl -X DELETE \
+  "http://localhost:8080/document/v1/embeddings/news/docid?selection=true&cluster=llm"
+```
+
+
+### (Option 2) OpenSearch [WIP]
 
 Follow [the instructions](https://opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/#run-opensearch-in-a-docker-container) 
 to set up a single node OpenSearch server with docker.
@@ -102,19 +116,28 @@ as OpenSearch will not start otherwise.
 
 Open http://localhost:5601 and login as admin with the `OPENSEARCH_INITIAL_ADMIN_PASSWORD` password you created above.
 
-## USAGE
+## BUILD
 
-## Misc
-
-Delete all Vespa docs
 ```shell
-curl -X DELETE \
-  "http://localhost:8080/document/v1/embeddings/news/docid?selection=true&cluster=llm"
+mvn clean package
 ```
 
-## GRPC Service
-
+## USAGE
 
 ```shell
+# Populate the Vector store
+./target/langchain4j-local-rag-sample-0.0.1-assembly/bin/rag-sample-create-embeddings.sh
+
+# Chat 
+./target/langchain4j-local-rag-sample-0.0.1-assembly/bin/rag-sample-cli.sh
+```
+
+### Call GRPC Service
+
+```shell
+# Start GRPC server
+./target/langchain4j-local-rag-sample-0.0.1-assembly/bin/rag-sample-grpc-service.sh
+
+# Call the service
 grpcurl --plaintext -d '{"question": "What is the Foundation?"}' 127.0.0.1:4242 ragsample.RagSample.Ask
 ```

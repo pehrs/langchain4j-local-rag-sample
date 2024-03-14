@@ -1,11 +1,13 @@
 package com.pehrs.langchain4j.vespa;
 
+import ai.vespa.feed.client.DocumentId;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.pehrs.langchain4j.RagSample;
 import com.pehrs.langchain4j.epub.EpubDocumentsReader;
 import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore.VespaDoc;
 import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore.VespaEmbedding;
+import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore.VespaInsertReq;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -13,7 +15,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class EpubVespaDocHandler implements VespaDocumentHandler {
 
@@ -29,7 +30,7 @@ public class EpubVespaDocHandler implements VespaDocumentHandler {
   }
 
   @Override
-  public VespaDoc createVespaDoc(String docId, Embedding embedding, TextSegment textSegment) {
+  public VespaInsertReq createVespaInsertReq(DocumentId docId, Embedding embedding, TextSegment textSegment) {
     Map<String, Object> fields = new HashMap<>();
     if (textSegment != null) {
       fields.put("content", textSegment.text());
@@ -47,7 +48,7 @@ public class EpubVespaDocHandler implements VespaDocumentHandler {
       }
     }
     fields.put("embedding", new VespaEmbedding(embedding.vectorAsList()));
-    return new VespaDoc(fields);
+    return new VespaInsertReq(docId.toString(), fields);
   }
 
   @Override
@@ -61,7 +62,7 @@ public class EpubVespaDocHandler implements VespaDocumentHandler {
   }
 
   @Override
-  public String getConent(JsonNode jsonFields) {
+  public String getContent(JsonNode jsonFields) {
     return jsonFields.get("content").asText();
   }
 
@@ -78,20 +79,16 @@ public class EpubVespaDocHandler implements VespaDocumentHandler {
   }
 
   @Override
-  public String createYqlRequest(List<Float> queryEmbedding, int maxResults, double minScore) {
-    String queryEmbeddingStr = queryEmbedding.stream().map(d -> "" + d)
-        .collect(Collectors.joining(","));
+  public YqlQueryRequest createYqlQueryRequest(List<Float> queryEmbedding, int maxResults, double minScore) {
 
-    return String.format("{\n"
-        + "  \"yql\": \"select documentid, embedding, title, content, segment_index from books where "
-        + "{targetHits:%d}nearestNeighbor(embedding,q_embedding)\",\n"
-        + "  \"input\": {\n"
-        + "    \"input.query(threshold)\": %f,\n"
-        + "    \"query(q_embedding)\": [\n"
-        + "      %s\n"
-        + "    ]\n"
-        + "  },\n"
-        + "  \"ranking\": \"recommendation\"\n"
-        + "}", maxResults, minScore, queryEmbeddingStr);
+    String yql = String.format("select documentid, embedding, title, content, segment_index from books "
+        + "where {targetHits:%d}nearestNeighbor(embedding,q_embedding)", maxResults);
+    String rankingProfile = "recommendation";
+    Map<String, Object> input = Map.of(
+        "query(threshold)", minScore,
+        "query(q_embedding)", queryEmbedding
+    );
+    YqlQueryRequest yqlRequest = new YqlQueryRequest(yql, input, rankingProfile);
+    return yqlRequest;
   }
 }

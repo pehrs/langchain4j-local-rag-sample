@@ -1,7 +1,7 @@
 {
-  "yql": "select documentid, embedding, title, content, segment_index from news where {targetHits:5}nearestNeighbor(embedding,q_embedding)",
+  "yql": "select documentid, embedding, title, content, segment_index from books where {targetHits:5}nearestNeighbor(embedding,q_embedding)",
   "input": {
-    "input.query(threshold)": 0.88,
+    "query(threshold)": 0.88,
     "query(q_embedding)": [
       0.010332104,
       0.0014491145,

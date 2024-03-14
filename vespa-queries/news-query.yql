@@ -1,7 +1,7 @@
 {
   "yql": "select ts, documentid, embedding, title, content, url, url, segment_index from news where {targetHits:35}nearestNeighbor(embedding,q_embedding) order by ts desc",
   "input": {
-    "input.query(threshold)": 0.88,
+    "query(threshold)": 0.88,
     "query(q_embedding)": [
       0.039310977,
       0.058730766,

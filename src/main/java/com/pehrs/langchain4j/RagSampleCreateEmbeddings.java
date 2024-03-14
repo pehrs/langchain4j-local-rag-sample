@@ -6,6 +6,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.pehrs.langchain4j.epub.EpubDocumentsReader;
 import com.pehrs.langchain4j.metrics.ConsoleTableReporter;
 import com.pehrs.langchain4j.rss.RssFeedReader;
+import com.pehrs.langchain4j.util.CustomBatchIterator;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import dev.langchain4j.data.document.DocumentSplitter;
@@ -16,14 +17,10 @@ import dev.langchain4j.model.Tokenizer;
 import dev.langchain4j.model.embedding.BertTokenizer;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.xml.parsers.ParserConfigurationException;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,71 +48,56 @@ public class RagSampleCreateEmbeddings {
       Config config = ConfigFactory.load("rag-sample");
 
       EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
-      EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(config.getString("embeddingStore"), config);
-      DocumentsReader documentsReader = createDocumentsReader(metricRegistry, config);
+      EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry, config);
+      DocumentsReader documentsReader = RagSample.createDocumentsReader(metricRegistry, config);
 
-      createEmbeddings(metricRegistry, embeddingStore, embeddingModel, documentsReader);
+      createEmbeddings(metricRegistry, config, embeddingStore, embeddingModel, documentsReader);
     } catch (Exception ex) {
       ex.printStackTrace();
     }
   }
 
-  private static DocumentsReader createDocumentsReader(MetricRegistry metricRegistry, Config config) {
-    try {
-      String readerClassName = config.getString("documentsReader");
-      Class<?> readerClass = Class.forName(readerClassName);
-      Constructor<?> constructor = readerClass.getDeclaredConstructor(
-          MetricRegistry.class, Config.class);
-      return (DocumentsReader) constructor.newInstance(metricRegistry, config);
-    } catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException |
-             InstantiationException | IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-//  @NotNull
-//  private static RssFeedReader getRssFeedReader(MetricRegistry metricRegistry, Config config) throws ParserConfigurationException {
-//    List<String> rssFeeds = config.getStringList("rss.feeds");
-//    // Allow for overrides
-//    String rssFeedsProp = System.getProperty("rss.feeds");
-//    if (rssFeedsProp != null) {
-//      rssFeeds = Arrays.stream(rssFeedsProp.split(",")).toList();
-//    }
-//    RssFeedReader rssFeedReader = new RssFeedReader(metricRegistry, rssFeeds);
-//    return rssFeedReader;
-//  }
-
   static void createEmbeddings(
       MetricRegistry metricRegistry,
+      Config config,
       EmbeddingStore<TextSegment> embeddingStore,
       EmbeddingModel embeddingModel,
       DocumentsReader documentsReader) throws Exception {
 
-    Tokenizer tokenizer = new BertTokenizer();
+    Tokenizer tokenizer = new BertTokenizer(); // FIXME: Should this be configurable?
     DocumentSplitter splitter =
-        DocumentSplitters.recursive(1000, 200, tokenizer);
+        DocumentSplitters.recursive(
+            config.getInt("embeddings.segments.maxSegmentSizeInTokens"),
+            config.getInt("embeddings.segments.maxOverlapSizeInTokens"),
+            tokenizer);
 
     Histogram generateHistogram = metricRegistry.histogram(VECTOR_GEN_MS);
     Histogram saveHistogram = metricRegistry.histogram(VECTOR_SAVE_MS);
 
-    documentsReader.readDocuments()
+    Stream<TextSegment> textSegments = documentsReader.readDocuments()
         .flatMap(document -> {
-          if(document!=null) {
+          if (document != null) {
             return splitter.split(document).stream();
           }
           log.warn("null document from document reader");
           return Stream.of();
-        })
-        .forEach(segment -> {
-          // Generate Embedding
-          long start = System.nanoTime();
-          Embedding embedding = embeddingModel.embed(segment).content();
-          generateHistogram.update(System.nanoTime() - start);
+        });
 
-          // Save
-          String newsId = segment.metadata().get(RssFeedReader.METADATA_NEWS_ID);
-          start = System.nanoTime();
-          embeddingStore.add(embedding, segment);
+    int batchSize = config.getInt("embeddings.batchSize");
+    CustomBatchIterator.batchStreamOf(textSegments, batchSize)
+        .forEach(segments -> {
+          // Generate Embeddings
+
+          List<Embedding> embeddings = segments.stream().map(segment -> {
+                long start = System.nanoTime();
+                Embedding embedding = embeddingModel.embed(segment).content();
+                generateHistogram.update(System.nanoTime() - start);
+                return embedding;
+              }).collect(Collectors.toList());
+
+          // Save batch
+          long start = System.nanoTime();
+          embeddingStore.addAll(embeddings, segments);
           saveHistogram.update(System.nanoTime() - start);
         });
   }

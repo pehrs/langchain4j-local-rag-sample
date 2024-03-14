@@ -2,6 +2,7 @@ package com.pehrs.langchain4j;
 
 import static java.util.Arrays.asList;
 
+import com.codahale.metrics.MetricRegistry;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import dev.langchain4j.data.embedding.Embedding;
@@ -59,12 +60,12 @@ public class RagSampleCli {
 
   static Chat createInteractiveChat(Config config) {
 
+    MetricRegistry metricRegistry = new MetricRegistry();
     ChatLanguageModel chatModel = RagSample.createChatLanguageModel(config);
 
     EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
 
-    EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(
-        config.getString("embeddingStore"), config);
+    EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry,config);
 
     ContentRetriever contentRetriever = EmbeddingStoreContentRetriever.builder()
         .embeddingStore(embeddingStore)
