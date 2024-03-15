@@ -12,9 +12,9 @@ NOTE: **The OpenSearch implementation is still work-in-progress and is not yet r
 
 Install [ollama](https://ollama.ai/download)
 
-The [default configuration](src/main/resources/rag-sample.conf) is using the [gemma:7b model](https://ollama.ai/library/mistral):
+The [default configuration](src/main/resources/rag-sample.conf) is using the [mistral:7b](https://ollama.ai/library/mistral):
 ```shell
-ollama pull gemma:7b
+ollama pull mistral:7b
 ```
 
 To list your local ollama models:
