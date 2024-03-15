@@ -7,6 +7,12 @@ NOTE: **The OpenSearch implementation is still work-in-progress and is not yet r
 
 ## Runtime Requirements
 
+### Epub books
+
+The default setup will read epub books from the [`books`](books) directory for the RAG.
+
+Please copy your favorite epub books in there with filenames ending with `.epub`.
+
 
 ### Ollama model running locally
 
