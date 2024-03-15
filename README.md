@@ -122,7 +122,7 @@ Open http://localhost:5601 and login as admin with the `OPENSEARCH_INITIAL_ADMIN
 Make sure you set the [configuration](src/main/resources/rag-sample.conf) to what you want to use.
 
 ```shell
-mvn clean package
+mvn clean compile package
 ```
 
 ## USAGE
