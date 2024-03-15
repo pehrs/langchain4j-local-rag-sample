@@ -1,8 +1,9 @@
 # langchain4j-local-rag-sample
 
 This is a simple RAG service running everything locally 
-that uses Vespa or OpenSearch as the VectorStore and an ollama model 
-for building embeddings and prompting.
+that uses Vespa or OpenSearch as the VectorStore and an ollama model.
+
+NOTE: **The OpenSearch implementation is still work-in-progress and is not yet ready to be used.**
 
 ## Runtime Requirements
 
@@ -24,7 +25,7 @@ ollama list
 curl -s localhost:11434/api/tags | jq .
 ```
 
-### (option 1) Vespa 
+### (option 1; default) Vespa 
 
 
 #### Start Vespa cluster
@@ -118,6 +119,8 @@ Open http://localhost:5601 and login as admin with the `OPENSEARCH_INITIAL_ADMIN
 
 ## BUILD
 
+Make sure you set the [configuration](src/main/resources/rag-sample.conf) to what you want to use.
+
 ```shell
 mvn clean package
 ```
@@ -140,4 +143,35 @@ mvn clean package
 
 # Call the service
 grpcurl --plaintext -d '{"question": "What is the Foundation?"}' 127.0.0.1:4242 ragsample.RagSample.Ask
+```
+
+## Misc
+
+Some alternative prompts:
+
+```properties
+prompt.template = """You are a helpful assistant, conversing with a user about the subjects contained in a set of documents.
+Use the information from the DOCUMENTS section to provide accurate answers. If unsure or if the answer
+isn't found in the DOCUMENTS section, simply state that you don't know the answer.
+
+QUESTION:
+{{userMessage}}
+
+DOCUMENTS:
+{{contents}}
+"""
+```
+
+```properties
+prompt.template = """Context information is below.
+
+---------------------
+{{contents}}
+---------------------
+
+Given the context information above and no prior knowledge, provide answers based on the below query.
+
+{{userMessage}}
+"""
+
 ```
