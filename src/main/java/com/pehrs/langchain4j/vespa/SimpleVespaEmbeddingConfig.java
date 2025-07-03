@@ -2,6 +2,7 @@ package com.pehrs.langchain4j.vespa;
 
 import com.typesafe.config.Config;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Path;
 import java.time.Duration;
 
 public class SimpleVespaEmbeddingConfig {
@@ -15,15 +16,41 @@ public class SimpleVespaEmbeddingConfig {
 
   public final String vespaDocumentHandler;
 
-  SimpleVespaEmbeddingConfig(String url, Duration timeout,
-      String rankProfile, String rankingInputName, boolean avoidDups, String vespaDocumentHandler) {
+  public final String feedUrl;
+
+  public final boolean enableTls;
+  public final String caCertPath;
+  public final String clientCertPath;
+  public final String clientKeyPath;
+
+  public SimpleVespaEmbeddingConfig(String url, Duration timeout, String rankProfile,
+      String rankingInputName, boolean avoidDups, String vespaDocumentHandler,
+      String feedUrl,
+      boolean enableTls,
+      String caCertPath, String clientCertPath, String clientKeyPath) {
     this.url = url;
     this.timeout = timeout;
     this.rankProfile = rankProfile;
     this.rankingInputName = rankingInputName;
     this.avoidDups = avoidDups;
     this.vespaDocumentHandler = vespaDocumentHandler;
+    this.feedUrl = feedUrl;
+    this.enableTls = enableTls;
+    this.caCertPath = caCertPath;
+    this.clientCertPath = clientCertPath;
+    this.clientKeyPath = clientKeyPath;
+  }
 
+  public Path getCaCertPath() {
+    return Path.of(this.caCertPath);
+  }
+
+  public Path getClientCertPath() {
+    return Path.of(this.clientCertPath);
+  }
+
+  public Path getClientKeyPath() {
+    return Path.of(this.clientKeyPath);
   }
 
   public VespaDocumentHandler createVespaDocumentHandler() {
@@ -68,6 +95,26 @@ public class SimpleVespaEmbeddingConfig {
       builder.setVespaDocumentHandler(vespaConfig.getString("vespaDocumentHandler"));
     }
 
+    if (vespaConfig.hasPath("vespaDocumentHandler")) {
+      builder.setVespaDocumentHandler(vespaConfig.getString("vespaDocumentHandler"));
+    }
+
+    if (vespaConfig.hasPath("feedUrl")) {
+      builder.setFeedUrl(vespaConfig.getString("feedUrl"));
+    }
+    if (vespaConfig.hasPath("enableTls")) {
+      builder.setEnableTls(vespaConfig.getBoolean("enableTls"));
+    }
+    if (vespaConfig.hasPath("caCertPath")) {
+      builder.setCaCertPath(vespaConfig.getString("caCertPath"));
+    }
+    if (vespaConfig.hasPath("clientCertPath")) {
+      builder.setClientCertPath(vespaConfig.getString("clientCertPath"));
+    }
+    if (vespaConfig.hasPath("clientKeyPath")) {
+      builder.setClientKeyPath(vespaConfig.getString("clientKeyPath"));
+    }
+
     return builder;
   }
 
@@ -84,6 +131,12 @@ public class SimpleVespaEmbeddingConfig {
     private String vespaDocumentHandler;
 
 
+    public String feedUrl;
+    public  boolean enableTls;
+    public  String caCertPath;
+    public  String clientCertPath;
+    public  String clientKeyPath;
+
     public VespaEmbeddingConfigBuilder() {
       this.url = "http://localhost:8080";
       this.timeout = Duration.ofSeconds(5);
@@ -93,7 +146,11 @@ public class SimpleVespaEmbeddingConfig {
       this.rankingInputName = "q_embedding";
       this.avoidDups = true;
       this.vespaDocumentHandler = null;
-
+      this.feedUrl = "https://localhost:9443";
+      this.enableTls = false;
+      this.caCertPath = null;
+      this.clientCertPath = null;
+      this.clientKeyPath = null;
     }
 
     public VespaEmbeddingConfigBuilder setUrl(String url) {
@@ -136,10 +193,33 @@ public class SimpleVespaEmbeddingConfig {
       return this;
     }
 
+    public VespaEmbeddingConfigBuilder setFeedUrl(String url) {
+      this.feedUrl = url;
+      return this;
+    }
+    public VespaEmbeddingConfigBuilder setEnableTls(boolean value) {
+      this.enableTls = value;
+      return this;
+    }
+
+    public VespaEmbeddingConfigBuilder setCaCertPath(String path) {
+      this.caCertPath = path;
+      return this;
+    }
+    public VespaEmbeddingConfigBuilder setClientCertPath(String path) {
+      this.clientCertPath = path;
+      return this;
+    }
+    public VespaEmbeddingConfigBuilder setClientKeyPath(String path) {
+      this.clientKeyPath = path;
+      return this;
+    }
 
     public SimpleVespaEmbeddingConfig build() {
       return new SimpleVespaEmbeddingConfig(
-          url, timeout, rankProfile, rankingInputName, avoidDups, vespaDocumentHandler
+          url, timeout, rankProfile, rankingInputName, avoidDups, vespaDocumentHandler,
+          feedUrl,
+          enableTls, caCertPath, clientCertPath, clientKeyPath
       );
     }
 

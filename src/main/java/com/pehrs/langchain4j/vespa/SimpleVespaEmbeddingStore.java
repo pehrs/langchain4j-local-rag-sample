@@ -8,8 +8,8 @@ import ai.vespa.feed.client.FeedClientBuilder;
 import ai.vespa.feed.client.FeedException;
 import ai.vespa.feed.client.JsonFeeder;
 import ai.vespa.feed.client.Result;
-import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pehrs.langchain4j.RagSample;
@@ -73,7 +73,8 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
   private final SimpleVespaEmbeddingConfig config;
   private final VespaDocumentHandler vespaDocumentHandler;
 
-  public SimpleVespaEmbeddingStore(MetricRegistry metricRegistry, SimpleVespaEmbeddingConfig config) {
+  public SimpleVespaEmbeddingStore(MetricRegistry metricRegistry,
+      SimpleVespaEmbeddingConfig config) {
     // Remove any trailing slash
     this.config = config;
 
@@ -95,8 +96,29 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
   }
 
   JsonFeeder buildJsonFeeder() {
+    FeedClientBuilder feedClientBuilder = FeedClientBuilder
+        .create(URI.create(config.feedUrl));
+
+    if (config.enableTls) {
+//        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+//        // String certStr = "";
+//        //byte[] decoded = Base64.getDecoder().decode(certStr);
+//        // try (InputStream targetStream = new ByteArrayInputStream(certStr.getBytes())) {
+//        // FIXME: Do we need Base64 decoding here?
+//        try (InputStream targetStream = new FileInputStream(config.getCaCertPath().toFile())) {
+//          X509Certificate caCert = (X509Certificate) cf.generateCertificate(targetStream);
+//          feedClientBuilder.setCaCertificates(List.of(
+//              caCert
+//          ));
+//        } catch (IOException e) {
+//          throw new RuntimeException(e);
+//        }
+      feedClientBuilder.setCaCertificatesFile(config.getCaCertPath());
+      feedClientBuilder.setCertificate(config.getClientCertPath(), config.getClientKeyPath());
+
+    }
     return JsonFeeder
-        .builder(FeedClientBuilder.create(URI.create(config.url)).build())
+        .builder(feedClientBuilder.build())
         .withTimeout(config.timeout)
         .build();
   }
@@ -145,24 +167,26 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
             embeddings.get(i), textSegments.get(i)));
       }
 
-      jsonFeeder.feedMany(
-          Json.toInputStream(records, List.class),
-          new JsonFeeder.ResultCallback() {
-            @Override
-            public void onNextResult(Result result, FeedException error) {
-              if (error != null) {
+      if(!records.isEmpty()) {
+        jsonFeeder.feedMany(
+            Json.toInputStream(records, List.class),
+            new JsonFeeder.ResultCallback() {
+              @Override
+              public void onNextResult(Result result, FeedException error) {
+                if (error != null) {
+                  throw new RuntimeException(error.getMessage());
+                } else if (Result.Type.success.equals(result.type())) {
+                  ids.add(result.documentId().toString());
+                }
+              }
+
+              @Override
+              public void onError(FeedException error) {
                 throw new RuntimeException(error.getMessage());
-              } else if (Result.Type.success.equals(result.type())) {
-                ids.add(result.documentId().toString());
               }
             }
-
-            @Override
-            public void onError(FeedException error) {
-              throw new RuntimeException(error.getMessage());
-            }
-          }
-      );
+        );
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -194,9 +218,7 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
 
   }
 
-
   public record VespaInsertReq(String id, Map<String, Object> fields) {
-
   }
 
   public record VespaDoc(Map<String, Object> fields) {
@@ -354,12 +376,14 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
   }
 
 
-  public static EmbeddingStore<TextSegment> createSimpleVespaEmbeddingStore(MetricRegistry metricRegistry, Config config) {
+  public static EmbeddingStore<TextSegment> createSimpleVespaEmbeddingStore(
+      MetricRegistry metricRegistry, Config config) {
     Config vespaConfig = config.getConfig("vespa");
     SimpleVespaEmbeddingConfig vespaEmbeddingConfig =
         SimpleVespaEmbeddingConfig.fromConfig(vespaConfig)
             .build();
-    EmbeddingStore embeddingStore = new SimpleVespaEmbeddingStore(metricRegistry, vespaEmbeddingConfig);
+    EmbeddingStore embeddingStore = new SimpleVespaEmbeddingStore(metricRegistry,
+        vespaEmbeddingConfig);
     return embeddingStore;
   }
 

@@ -134,10 +134,10 @@ mvn clean compile package
 ## USAGE
 
 ```shell
-# Populate the Vector store
+# Populate the Vector store (Default config reads some rss news feeds)
 ./target/langchain4j-local-rag-sample-0.0.1-assembly/bin/rag-sample-create-embeddings.sh
-
-# Chat 
+ 
+# Chat (will show results from both RAG and LLM directly)s
 ./target/langchain4j-local-rag-sample-0.0.1-assembly/bin/rag-sample-cli.sh
 ```
 
@@ -153,7 +153,7 @@ grpcurl --plaintext -d '{"question": "What is the Foundation?"}' 127.0.0.1:4242 
 
 ## Misc
 
-Some alternative prompts:
+Some alternative prompts (edit [rag-sample.conf](./src/main/resources/rag-sample.conf)):
 
 ```properties
 prompt.template = """You are a helpful assistant, conversing with a user about the subjects contained in a set of documents.

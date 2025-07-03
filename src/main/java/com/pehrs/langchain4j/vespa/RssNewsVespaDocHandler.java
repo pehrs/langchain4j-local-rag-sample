@@ -38,7 +38,7 @@ public class RssNewsVespaDocHandler implements VespaDocumentHandler {
     if (textSegment != null) {
       fields.put("content", textSegment.text());
       if (docId != null) {
-        fields.put("news_id", docId);
+        fields.put("news_id", docId.toString());
       }
       Metadata metadata = textSegment.metadata();
       if (metadata != null) {

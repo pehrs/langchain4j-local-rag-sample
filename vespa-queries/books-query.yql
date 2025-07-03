@@ -389,5 +389,9 @@
       0.019870816
     ]
   },
-  "ranking": "recommendation"
+  "ranking": "recommendation",
+  "trace": {
+    "level": 8,
+    "timestamps": true
+  }
 }
