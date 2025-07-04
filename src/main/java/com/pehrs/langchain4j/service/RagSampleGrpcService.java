@@ -10,10 +10,13 @@ import com.typesafe.config.ConfigFactory;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.input.Prompt;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import io.grpc.Grpc;
 import io.grpc.InsecureServerCredentials;
@@ -93,16 +96,21 @@ public class RagSampleGrpcService {
     }
 
     static String chat(MetricRegistry metricRegistry, Config config, String input) {
-      ChatLanguageModel chatModel = RagSample.createChatLanguageModel(config);
-      EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
+      ChatModel chatModel = RagSample.createChatLanguageModel(config);
+      EmbeddingModel embeddingModel = RagSample.createEmbeddingModel(config);
       EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry, config);
 
       Embedding questionEmbedding = embeddingModel.embed(input).content();
 
       int maxResults = config.getInt("chat.maxResults");
       double minScore = config.getDouble("chat.minScore");
-      List<EmbeddingMatch<TextSegment>> relevantEmbeddings
-          = embeddingStore.findRelevant(questionEmbedding, maxResults, minScore);
+      EmbeddingSearchRequest req = EmbeddingSearchRequest.builder()
+          .queryEmbedding(questionEmbedding)
+          .maxResults(maxResults)
+          .minScore(minScore)
+          .build();
+      EmbeddingSearchResult<TextSegment> embeddings = embeddingStore.search(req);
+      List<EmbeddingMatch<TextSegment>> relevantEmbeddings = embeddings.matches();
 
       String contents = relevantEmbeddings.stream()
           .map(match -> match.embedded().text())
@@ -115,9 +123,9 @@ public class RagSampleGrpcService {
       );
 
       Prompt prompt = RagSample.getPromptTemplate(config).apply(variables);
-      AiMessage aiMessage = chatModel.generate(prompt.toUserMessage()).content();
+      ChatResponse response = chatModel.chat(prompt.toUserMessage());
+      String answer = response.aiMessage().text();
 
-      String answer = aiMessage.text();
       return answer;
     }
 

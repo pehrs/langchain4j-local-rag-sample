@@ -42,19 +42,19 @@ public class RssNewsVespaDocHandler implements VespaDocumentHandler {
       }
       Metadata metadata = textSegment.metadata();
       if (metadata != null) {
-        String url = metadata.get(RssFeedReader.METADATA_URL);
+        String url = metadata.getString(RssFeedReader.METADATA_URL);
         if (url != null) {
           fields.put("url", url);
         }
-        String index = metadata.get(RagSample.METADATA_SEGMENT_INDEX);
+        String index = metadata.getString(RagSample.METADATA_SEGMENT_INDEX);
         if (index != null) {
           fields.put("segment_index", Integer.parseInt(index));
         }
-        String title = metadata.get(RssFeedReader.METADATA_TITLE);
+        String title = metadata.getString(RssFeedReader.METADATA_TITLE);
         if (title != null) {
           fields.put("title", title);
         }
-        String ts = metadata.get(RssFeedReader.METADATA_TS);
+        String ts = metadata.getString(RssFeedReader.METADATA_TS);
         if (ts != null) {
           fields.put("ts", ts);
         }

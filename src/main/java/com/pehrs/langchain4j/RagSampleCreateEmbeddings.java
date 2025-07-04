@@ -13,8 +13,6 @@ import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.Tokenizer;
-import dev.langchain4j.model.embedding.BertTokenizer;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import java.util.List;
@@ -47,7 +45,7 @@ public class RagSampleCreateEmbeddings {
 
       Config config = ConfigFactory.load("rag-sample");
 
-      EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
+      EmbeddingModel embeddingModel = RagSample.createEmbeddingModel(config);
       EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry, config);
       DocumentsReader documentsReader = RagSample.createDocumentsReader(metricRegistry, config);
 
@@ -64,12 +62,10 @@ public class RagSampleCreateEmbeddings {
       EmbeddingModel embeddingModel,
       DocumentsReader documentsReader) throws Exception {
 
-    Tokenizer tokenizer = new BertTokenizer(); // FIXME: Should this be configurable?
     DocumentSplitter splitter =
         DocumentSplitters.recursive(
             config.getInt("embeddings.segments.maxSegmentSizeInTokens"),
-            config.getInt("embeddings.segments.maxOverlapSizeInTokens"),
-            tokenizer);
+            config.getInt("embeddings.segments.maxOverlapSizeInTokens"));
 
     Histogram generateHistogram = metricRegistry.histogram(VECTOR_GEN_MS);
     Histogram saveHistogram = metricRegistry.histogram(VECTOR_SAVE_MS);

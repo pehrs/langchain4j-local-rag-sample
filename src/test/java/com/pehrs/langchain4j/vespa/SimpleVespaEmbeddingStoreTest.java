@@ -9,15 +9,16 @@ import ai.vespa.feed.client.FeedException;
 import ai.vespa.feed.client.JsonFeeder;
 import ai.vespa.feed.client.JsonFeeder.ResultCallback;
 import ai.vespa.feed.client.Result;
-import com.amazonaws.util.StringInputStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore.VespaInsertReq;
 import dev.langchain4j.internal.Json;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +56,7 @@ class SimpleVespaEmbeddingStoreTest {
     records.add(insertReq);
 
     String json = objectMapper.writeValueAsString(records);
-    try(InputStream inStream = new StringInputStream(json)) {
+    try (InputStream inStream = new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8))) {
       CompletableFuture<Void> future = feeder.feedMany(
           inStream,
           new ResultCallback() {

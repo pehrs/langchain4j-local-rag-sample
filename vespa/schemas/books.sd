@@ -11,7 +11,7 @@ schema books {
             indexing: index | summary
             index: enable-bm25
         }
-        field embedding type tensor<float>(d0[384]) {
+        field embedding type tensor<float>(d0[4096]) {
             indexing: attribute | index | summary
             attribute {
                 distance-metric: dotproduct
@@ -25,7 +25,7 @@ schema books {
 
     rank-profile recommendation inherits default {
         inputs {
-          query(q_embedding) tensor<float>(d0[384])
+          query(q_embedding) tensor<float>(d0[4096])
         }
         first-phase {
           expression: closeness(field, embedding)

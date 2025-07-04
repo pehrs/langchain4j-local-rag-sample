@@ -14,6 +14,8 @@ public class SimpleVespaEmbeddingConfig {
   public final String rankingInputName;
   public final boolean avoidDups;
 
+  public final int targetHits;
+
   public final String vespaDocumentHandler;
 
   public final String feedUrl;
@@ -23,19 +25,26 @@ public class SimpleVespaEmbeddingConfig {
   public final String clientCertPath;
   public final String clientKeyPath;
 
+  public final boolean logRequests;
+
   public SimpleVespaEmbeddingConfig(String url, Duration timeout, String rankProfile,
-      String rankingInputName, boolean avoidDups, String vespaDocumentHandler,
+      String rankingInputName, boolean avoidDups,
+      int targetHits,
+      String vespaDocumentHandler,
       String feedUrl,
       boolean enableTls,
+      boolean logRequests,
       String caCertPath, String clientCertPath, String clientKeyPath) {
     this.url = url;
     this.timeout = timeout;
     this.rankProfile = rankProfile;
     this.rankingInputName = rankingInputName;
     this.avoidDups = avoidDups;
+    this.targetHits = targetHits;
     this.vespaDocumentHandler = vespaDocumentHandler;
     this.feedUrl = feedUrl;
     this.enableTls = enableTls;
+    this.logRequests = logRequests;
     this.caCertPath = caCertPath;
     this.clientCertPath = clientCertPath;
     this.clientKeyPath = clientKeyPath;
@@ -91,6 +100,9 @@ public class SimpleVespaEmbeddingConfig {
     if (vespaConfig.hasPath("avoidDups")) {
       builder.setAvoidDups(vespaConfig.getBoolean("avoidDups"));
     }
+    if (vespaConfig.hasPath("targetHits")) {
+      builder.setTargetHits(vespaConfig.getInt("targetHits"));
+    }
     if (vespaConfig.hasPath("vespaDocumentHandler")) {
       builder.setVespaDocumentHandler(vespaConfig.getString("vespaDocumentHandler"));
     }
@@ -101,6 +113,9 @@ public class SimpleVespaEmbeddingConfig {
 
     if (vespaConfig.hasPath("feedUrl")) {
       builder.setFeedUrl(vespaConfig.getString("feedUrl"));
+    }
+    if (vespaConfig.hasPath("logRequests")) {
+      builder.setLogRequests(vespaConfig.getBoolean("logRequests"));
     }
     if (vespaConfig.hasPath("enableTls")) {
       builder.setEnableTls(vespaConfig.getBoolean("enableTls"));
@@ -127,6 +142,8 @@ public class SimpleVespaEmbeddingConfig {
     private String rankProfile;
     private String rankingInputName;
     private boolean avoidDups;
+    private int targetHits;
+    private boolean logRequests;
 
     private String vespaDocumentHandler;
 
@@ -145,9 +162,11 @@ public class SimpleVespaEmbeddingConfig {
       this.rankProfile = "recommendation";
       this.rankingInputName = "q_embedding";
       this.avoidDups = true;
+      this.targetHits = 5;
       this.vespaDocumentHandler = null;
       this.feedUrl = "https://localhost:9443";
       this.enableTls = false;
+      this.logRequests = false;
       this.caCertPath = null;
       this.clientCertPath = null;
       this.clientKeyPath = null;
@@ -188,6 +207,11 @@ public class SimpleVespaEmbeddingConfig {
       return this;
     }
 
+    public VespaEmbeddingConfigBuilder setTargetHits(int targetHits) {
+      this.targetHits = targetHits;
+      return this;
+    }
+
     public VespaEmbeddingConfigBuilder setVespaDocumentHandler(String handlerClassName) {
       this.vespaDocumentHandler = handlerClassName;
       return this;
@@ -197,6 +221,12 @@ public class SimpleVespaEmbeddingConfig {
       this.feedUrl = url;
       return this;
     }
+
+    public VespaEmbeddingConfigBuilder setLogRequests(boolean value) {
+      this.logRequests = value;
+      return this;
+    }
+
     public VespaEmbeddingConfigBuilder setEnableTls(boolean value) {
       this.enableTls = value;
       return this;
@@ -217,9 +247,9 @@ public class SimpleVespaEmbeddingConfig {
 
     public SimpleVespaEmbeddingConfig build() {
       return new SimpleVespaEmbeddingConfig(
-          url, timeout, rankProfile, rankingInputName, avoidDups, vespaDocumentHandler,
+          url, timeout, rankProfile, rankingInputName, avoidDups, targetHits, vespaDocumentHandler,
           feedUrl,
-          enableTls, caCertPath, clientCertPath, clientKeyPath
+          enableTls, logRequests, caCertPath, clientCertPath, clientKeyPath
       );
     }
 

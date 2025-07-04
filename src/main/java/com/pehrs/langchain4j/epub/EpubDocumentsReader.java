@@ -1,6 +1,5 @@
 package com.pehrs.langchain4j.epub;
 
-import com.amazonaws.util.StringInputStream;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
@@ -8,10 +7,14 @@ import com.pehrs.langchain4j.DocumentsReader;
 import com.pehrs.langchain4j.RagSample;
 import com.typesafe.config.Config;
 import dev.langchain4j.data.document.Document;
+import jakarta.xml.bind.DatatypeConverter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -22,13 +25,12 @@ import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import javax.xml.bind.DatatypeConverter;
 import nl.siegmann.epublib.domain.Book;
 import nl.siegmann.epublib.domain.Resource;
 import nl.siegmann.epublib.epub.EpubReader;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.html.HtmlParser;
+import org.apache.tika.parser.html.JSoupParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -80,13 +82,14 @@ public class EpubDocumentsReader implements DocumentsReader {
           })
           .toList();
 
-      HtmlParser htmlParser = new HtmlParser();
+      JSoupParser htmlParser = new JSoupParser();
       String txt = htmlData.stream()
           .map(html -> {
             ContentHandler handler = new BodyContentHandler(-1);
             org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
-            try {
-              htmlParser.parse(new StringInputStream(html.replace("\u00a0", "")), handler, metadata, new ParseContext());
+            try (InputStream input = new ByteArrayInputStream(html.replace("\u00a0", "")
+                .getBytes(StandardCharsets.UTF_8));){
+              htmlParser.parse(input, handler, metadata, new ParseContext());
             } catch (IOException | SAXException | TikaException e) {
               throw new RuntimeException(e);
             }

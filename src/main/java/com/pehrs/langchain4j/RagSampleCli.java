@@ -6,7 +6,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
@@ -79,9 +79,9 @@ public class RagSampleCli {
   static Chat createRagChat(Config config) {
 
     MetricRegistry metricRegistry = new MetricRegistry();
-    ChatLanguageModel chatModel = RagSample.createChatLanguageModel(config);
+    ChatModel chatModel = RagSample.createChatLanguageModel(config);
 
-    EmbeddingModel embeddingModel = RagSample.createEmbeddingModel();
+    EmbeddingModel embeddingModel = RagSample.createEmbeddingModel(config);
 
     EmbeddingStore embeddingStore = RagSample.createEmbeddingStore(metricRegistry, config);
 
@@ -104,7 +104,7 @@ public class RagSampleCli {
         .build();
 
     return AiServices.builder(Chat.class)
-        .chatLanguageModel(chatModel)
+        .chatModel(chatModel)
         .retrievalAugmentor(retrievalAugmentor)
         .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
         .build();
@@ -113,10 +113,10 @@ public class RagSampleCli {
 
   static Chat createRegularChat(Config config) {
 
-    ChatLanguageModel chatModel = RagSample.createChatLanguageModel(config);
+    ChatModel chatModel = RagSample.createChatLanguageModel(config);
 
     return AiServices.builder(Chat.class)
-        .chatLanguageModel(chatModel)
+        .chatModel(chatModel)
         .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
         .build();
   }

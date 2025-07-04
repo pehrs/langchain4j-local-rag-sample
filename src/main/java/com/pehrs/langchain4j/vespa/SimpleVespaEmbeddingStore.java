@@ -9,7 +9,6 @@ import ai.vespa.feed.client.FeedException;
 import ai.vespa.feed.client.JsonFeeder;
 import ai.vespa.feed.client.Result;
 import com.codahale.metrics.MetricRegistry;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pehrs.langchain4j.RagSample;
@@ -17,12 +16,16 @@ import com.typesafe.config.Config;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.internal.Json;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -167,25 +170,30 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
             embeddings.get(i), textSegments.get(i)));
       }
 
-      if(!records.isEmpty()) {
-        jsonFeeder.feedMany(
-            Json.toInputStream(records, List.class),
-            new JsonFeeder.ResultCallback() {
-              @Override
-              public void onNextResult(Result result, FeedException error) {
-                if (error != null) {
+      if (!records.isEmpty()) {
+
+        try (InputStream recordInput = new ByteArrayInputStream(objectMapper.writeValueAsString(records)
+            .getBytes(StandardCharsets.UTF_8))) {
+
+          jsonFeeder.feedMany(
+              recordInput, // Json.toInputStream(records, List.class),
+              new JsonFeeder.ResultCallback() {
+                @Override
+                public void onNextResult(Result result, FeedException error) {
+                  if (error != null) {
+                    throw new RuntimeException(error.getMessage());
+                  } else if (Result.Type.success.equals(result.type())) {
+                    ids.add(result.documentId().toString());
+                  }
+                }
+
+                @Override
+                public void onError(FeedException error) {
                   throw new RuntimeException(error.getMessage());
-                } else if (Result.Type.success.equals(result.type())) {
-                  ids.add(result.documentId().toString());
                 }
               }
-
-              @Override
-              public void onError(FeedException error) {
-                throw new RuntimeException(error.getMessage());
-              }
-            }
-        );
+          );
+        }
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -195,13 +203,14 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
 
   }
 
+
   private String createDocId(TextSegment textSegment) {
-    String srcId = textSegment.metadata().get(RagSample.METADATA_SRC_ID);
+    String srcId = textSegment.metadata().getString(RagSample.METADATA_SRC_ID);
     String docId = srcId != null
         ? srcId
         : config.avoidDups && textSegment != null ? generateUUIDFrom(textSegment.text())
             : randomUUID();
-    String segmentIndex = textSegment.metadata().get(RagSample.METADATA_SEGMENT_INDEX);
+    String segmentIndex = textSegment.metadata().getString(RagSample.METADATA_SEGMENT_INDEX);
     if (segmentIndex != null) {
       docId += "-" + segmentIndex;
     }
@@ -219,6 +228,7 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
   }
 
   public record VespaInsertReq(String id, Map<String, Object> fields) {
+
   }
 
   public record VespaDoc(Map<String, Object> fields) {
@@ -299,9 +309,11 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
   }
 
   @Override
-  public List<EmbeddingMatch<TextSegment>> findRelevant(Embedding referenceEmbedding,
-      int maxResults, double minScore) {
+  public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest embeddingSearchRequest) {
 
+    double minScore = embeddingSearchRequest.minScore();
+    int maxResults = embeddingSearchRequest.maxResults();
+    Embedding referenceEmbedding = embeddingSearchRequest.queryEmbedding();
     try {
       YqlQueryRequest yqlRequest = this.vespaDocumentHandler.createYqlQueryRequest(
           referenceEmbedding.vectorAsList(), maxResults,
@@ -349,7 +361,9 @@ public class SimpleVespaEmbeddingStore implements EmbeddingStore<TextSegment>, C
         EmbeddingMatch<TextSegment> embeddingMatch = toEmbeddingMatch(childNode);
         matches.add(embeddingMatch);
       });
-      return matches;
+
+      return new EmbeddingSearchResult(matches);
+
     } catch (IOException | ExecutionException | InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     }

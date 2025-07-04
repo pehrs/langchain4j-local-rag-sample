@@ -7,11 +7,11 @@ import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingConfig;
 import com.pehrs.langchain4j.vespa.SimpleVespaEmbeddingStore;
 import com.pehrs.langchain4j.vespa.VespaDocumentHandler;
 import com.typesafe.config.Config;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.embedding.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import dev.langchain4j.store.embedding.vespa.VespaEmbeddingStore;
@@ -59,46 +59,53 @@ public abstract class RagSample {
    */
   private static EmbeddingStore createVespaEmbeddingStore(Config config) {
 
-    Config vespaConfig = config.getConfig("vespa");
-    SimpleVespaEmbeddingConfig vespaEmbeddingConfig =
-        SimpleVespaEmbeddingConfig.fromConfig(vespaConfig)
+    Config configRoot = config.getConfig("vespa");
+    SimpleVespaEmbeddingConfig vespaConfig =
+        SimpleVespaEmbeddingConfig.fromConfig(configRoot)
             .build();
 
-    VespaDocumentHandler docHandler = vespaEmbeddingConfig.createVespaDocumentHandler();
+    VespaDocumentHandler docHandler = vespaConfig.createVespaDocumentHandler();
 
-    return new VespaEmbeddingStore(
-        vespaEmbeddingConfig.url,
-        null,
-        null,
-        vespaEmbeddingConfig.timeout,
-        docHandler.namespace(), // FIXME
-        docHandler.docType(), // FIXME
-        "recommendation", // FIXME
-        5,// FIXME
-        vespaEmbeddingConfig.avoidDups
-    );
+    return VespaEmbeddingStore.builder()
+        .url(vespaConfig.url)
+        .timeout(vespaConfig.timeout)
+        .namespace(docHandler.namespace())
+        .documentType(docHandler.docType())
+        .logRequests(vespaConfig.logRequests)
+        .avoidDups(vespaConfig.avoidDups)
+        .targetHits(vespaConfig.targetHits)
+        .build();
   }
 
-  public static EmbeddingModel createEmbeddingModel() {
-    // The AllMiniLmL6V2EmbeddingModel creates 384 floating vectors
-    EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+  public static EmbeddingModel createEmbeddingModel(Config config) {
+    // The AllMiniLmL6V2EmbeddingModel creates 384 sized floating vectors
+//    EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
 
     // Use GPU for embeddings :-) Might be slower but give larger vectors.
     // NOTE: Make sure to change your vector store schema to match the size of vector you are using.
-    // EmbeddingModel embeddingModel =
-    //    new OllamaEmbeddingModel(ollamaBaseUrl, ollamaModelName, ollamaTimeout, ollamaMaxRetries);
+    String ollamaBaseUrl = config.getString("ollama.baseUrl");
+    String ollamaModelName = config.getString("ollama.modelName");
+    Duration ollamaTimeout = config.getDuration("ollama.timeout");
+    Integer ollamaMaxRetries = config.getInt("ollama.maxRetries");
+    EmbeddingModel embeddingModel =
+        OllamaEmbeddingModel.builder()
+            .baseUrl(ollamaBaseUrl)
+            .modelName(ollamaModelName)
+            .timeout(ollamaTimeout)
+            .maxRetries(ollamaMaxRetries)
+        .build();
 
     return embeddingModel;
   }
 
-  public static ChatLanguageModel createChatLanguageModel(Config config) {
+  public static ChatModel createChatLanguageModel(Config config) {
     Config ollamaConfig = config.getConfig("ollama");
     String ollamaBaseUrl = ollamaConfig.getString("baseUrl");
     String ollamaModelName = ollamaConfig.getString("modelName");
     Duration ollamaTimeout = ollamaConfig.getDuration("timeout");
     Integer ollamaMaxRetries = ollamaConfig.getInt("maxRetries");
 
-    ChatLanguageModel chatModel = OllamaChatModel.builder()
+    ChatModel chatModel = OllamaChatModel.builder()
         .baseUrl(ollamaBaseUrl)
         .modelName(ollamaModelName)
         .timeout(ollamaTimeout)

@@ -37,11 +37,11 @@ public class EpubVespaDocHandler implements VespaDocumentHandler {
 
       Metadata metadata = textSegment.metadata();
       if (metadata != null) {
-        String index = metadata.get(RagSample.METADATA_SEGMENT_INDEX);
+        String index = metadata.getString(RagSample.METADATA_SEGMENT_INDEX);
         if (index != null) {
           fields.put("segment_index", Integer.parseInt(index));
         }
-        String title = metadata.get(EpubDocumentsReader.METADATA_TITLE);
+        String title = metadata.getString(EpubDocumentsReader.METADATA_TITLE);
         if (title != null) {
           fields.put("title", title);
         }
